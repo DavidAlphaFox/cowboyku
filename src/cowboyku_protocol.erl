@@ -246,7 +246,7 @@ parse_uri_path(<< C, Rest/bits >>, State, Method, SoFar) ->
 		$# -> skip_uri_fragment(Rest, State, Method, SoFar, <<>>);
 		_ -> parse_uri_path(Rest, State, Method, << SoFar/binary, C >>)
 	end.
-
+%% S = State M = Method P = Path, SoFar buffer
 parse_uri_query(<< C, Rest/bits >>, S, M, P, SoFar) ->
 	case C of
 		$\r -> error_terminate(400, S);
@@ -284,7 +284,7 @@ wait_header(Buffer, State=#state{socket=Socket, transport=Transport,
 		{error, _} ->
 			terminate(State)
 	end.
-
+%% Q = query V = version Headers = []
 parse_header(<< $\r, $\n, Rest/bits >>, S, M, P, Q, V, Headers) ->
 	request(Rest, S, M, P, Q, V, lists:reverse(Headers));
 parse_header(Buffer, State=#state{max_header_name_length=MaxLength},
@@ -304,7 +304,7 @@ match_colon(<< _, Rest/bits >>, N) ->
 	match_colon(Rest, N + 1);
 match_colon(_, _) ->
 	nomatch.
-
+%% S = State M = Method P = Path Q = Query V = Versin H = Header
 %% I know, this isn't exactly pretty. But this is the most critical
 %% code path and as such needs to be optimized to death.
 %%
@@ -436,14 +436,15 @@ parse_hd_value(_, State, _M, _P, _Q, _V, _H, _N, _SoFar) ->
         error_terminate(400, State).
 
 request(B, State=#state{transport=Transport}, M, P, Q, Version, Headers) ->
+
 	case lists:keyfind(<<"host">>, 1, Headers) of
 		false when Version =:= 'HTTP/1.1' ->
-			error_terminate(400, State);
+			error_terminate(400, State);	%% 1.1必须要有host
 		false ->
 			request(B, State, M, P, Q, Version, Headers,
-				<<>>, default_port(Transport:name()));
+				<<>>, default_port(Transport:name())); %% 转向默认端口
 		{_, RawHost} ->
-			try parse_host(RawHost, false, <<>>) of
+			try parse_host(RawHost, false, <<>>) of %% 找host信息
 				{Host, undefined} ->
 					request(B, State, M, P, Q, Version, Headers,
 						Host, default_port(Transport:name()));
